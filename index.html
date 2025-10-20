@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RotoFo Importer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ----------------------------------------------------------------- */
+    /* PURE AESTHETIC */
+    /* ----------------------------------------------------------------- */
+    :root {
+      --bg-primary: #f8f8fa;          /* Very light background for depth */
+      --bg-card: #ffffff;             /* Crisp white card background */
+      --text-dark: #1c1c1e;           /* Primary text */
+      --text-muted: #6a6a6a;          /* Secondary/Label text */
+      --border-subtle: #e5e5e9;       /* Light, dividing line color */
+      --accent-blue: #007aff;         /* iOS Blue */
+      --accent-red: #ff3b30;          /* System Red (Danger) */
+      --accent-green: #34c759;        /* System Green (Success) */
+    }
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    body {
+      margin: 0;
+      background-color: var(--bg-primary);
+      color: var(--text-dark);
+      padding: 30px 20px 80px 20px;
+    }
+    .container-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    /* Titles & Subtitles */
+    .app-title {
+      font-size: 36px;
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 4px;
+    }
+    .app-subtitle {
+        color: var(--text-muted);
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 40px;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    /* Card Component (Key to the aesthetic: large radius, soft shadow) */
+    .card {
+      background-color: var(--bg-card);
+      border-radius: 28px; /* High radius */
+      margin-bottom: 28px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Soft, lifted shadow */
+      overflow: hidden; /* Contains the list group elements */
+    }
+    h2 {
+        font-size: 20px;
+        font-weight: 700;
+        padding: 24px 28px 0 28px;
+        color: var(--text-dark);
+    }
+    .card-content {
+        padding: 0 28px 28px 28px;
+    }
+    
+    /* List Group Style (iOS Settings) */
+    .list-group {
+        margin-top: 16px;
+        border-radius: 12px;
+        border: 1px solid var(--border-subtle);
+        background: #ffffff;
+        overflow: hidden;
+    }
+    .list-item {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        background: transparent;
+    }
+    .list-item:not(:last-child) {
+        border-bottom: 1px solid var(--border-subtle);
+    }
+    .list-label {
+        flex-shrink: 0;
+        width: 150px; /* Fixed width for labels */
+        font-size: 15px;
+        font-weight: 500;
+        color: var(--text-dark);
+    }
+    .list-input-container {
+        flex-grow: 1;
+        min-width: 0; /* Important for flex overflow */
+    }
+    .list-input {
+        width: 100%;
+        border: none;
+        padding: 0;
+        background: transparent;
+        font-size: 15px;
+        color: var(--text-dark);
+        outline: none;
+    }
+    
+    /* Input Adjustments for Password/Date/Select */
+    .list-item input[type="password"],
+    .list-item input[type="date"],
+    .list-item select {
+        min-height: 20px; /* Match text height */
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+    }
+    
+    /* Buttons (iOS-style filled and system action) */
+    .btn {
+      cursor: pointer;
+      min-height: 44px;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-weight: 600;
+      transition: all 0.2s;
+      border: none;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .btn-primary {
+      background-color: var(--accent-blue);
+      color: white;
+      box-shadow: 0 2px 8px rgba(0, 122, 255, 0.4);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: #0060c0;
+      box-shadow: 0 3px 10px rgba(0, 122, 255, 0.5);
+    }
+    .btn-secondary {
+      background-color: transparent;
+      color: var(--accent-blue);
+      border: 1px solid var(--accent-blue);
+    }
+    .btn-secondary:hover:not(:disabled) {
+      background-color: rgba(0, 122, 255, 0.05);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    
+    /* Metrics Panel */
+    .metrics-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        gap: 10px;
+        padding: 15px 0;
+    }
+    .metric-box {
+      text-align: center;
+      padding: 14px 4px;
+      background: var(--bg-primary); /* Slightly recessed for a clean look */
+      border-radius: 10px;
+    }
+    .metric-box strong {
+      display: block;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+    .metric-box small {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .metric-box[data-status="matched"] strong { color: var(--accent-green); }
+    .metric-box[data-status="skipped"] strong { color: var(--accent-red); }
+    .metric-box[data-status="info"] strong { color: var(--text-dark); } 
+    
+    /* Log & Preview (System Console Look) */
+    .log-box {
+      background: #000000; /* Dark mode for console/log */
+      border-radius: 12px;
+      padding: 16px;
+      height: 220px;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-family: monospace;
+      font-size: 13px;
+      color: #f0f0f0; /* Light text on dark background */
+      line-height: 1.4;
+      box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Progress Bar */
+    .progress-container {
+        margin-top: 15px;
+        display: none;
+    }
+    .progress-bar-wrap {
+      height: 7px;
+      background: var(--border-subtle);
+      border-radius: 3.5px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background-color: var(--accent-blue);
+      transition: width 0.3s ease-out;
+    }
+    .progress-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 14px;
+        color: var(--text-muted);
+    }
+    .progress-info .btn-stop {
+        padding: 4px 10px;
+        font-size: 13px;
+        color: white;
+        background-color: var(--accent-red);
+        border-radius: 8px;
+        min-height: 30px;
+        box-shadow: 0 1px 4px rgba(255, 59, 48, 0.3);
+    }
+    
+    /* Custom File Input Styling for better alignment */
+    .file-input-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .file-input-label {
+        font-size: 14px;
+        color: var(--text-muted);
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .list-item input[type="file"] {
+        display: none; /* Hide native file input */
+    }
+
+    /* Diagnostics Section (List style, not full log box) */
+    .diagnostic-panel {
+        padding: 20px;
+        margin-top: 20px;
+        background: #f0f0f5; /* Slightly darker background for this section */
+        border-radius: 16px;
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 640px) {
+        .app-title {
+            font-size: 30px;
+        }
+        .list-item {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .list-label {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+        .list-group {
+            border-radius: 18px;
+        }
+        .card {
+            border-radius: 20px;
+        }
+    }
+  </style>
+</head>
+<body>
+  <div class="container-wrap">
+    <header>
+        <h1 class="app-title">RotoFo Importer</h1>
+        <p class="app-subtitle">Enough clicking.</p>
+    </header>
+
+    <!-- 1. Connection & Scope Card -->
+    <div class="card">
+      <h2>1. Fourth Connection</h2>
+      <div class="card-content">
+        <div class="list-group">
+            <div class="list-item">
+                <label for="token" class="list-label">API Bearer Token</label>
+                <div class="list-input-container">
+                    <input id="token" class="list-input" type="password" placeholder="Paste secure token" autocomplete="off" />
+                </div>
+            </div>
+            <div class="list-item">
+                <label for="locationId" class="list-label">Location ID</label>
+                <div class="list-input-container">
+                    <input id="locationId" class="list-input" type="text" value="6921" placeholder="e.g., 6921" />
+                </div>
+            </div>
+            <div class="list-item">
+                <label for="departmentId" class="list-label">Target Dept ID(s)</label>
+                <div class="list-input-container">
+                    <input id="departmentId" class="list-input" type="text" value="27156,42087" placeholder="Comma separated, e.g., 27156, 42087" />
+                </div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Data & Execution Card -->
+    <div class="card">
+      <h2>2. Data & Dates</h2>
+      <div class="card-content">
+        <div class="list-group">
+            <div class="list-item">
+                <label for="startDate" class="list-label">Week Start Date</label>
+                <div class="list-input-container">
+                    <input id="startDate" class="list-input" type="date" />
+                </div>
+            </div>
+            <div class="list-item">
+                <label for="endDate" class="list-label">Week End Date</label>
+                <div class="list-input-container">
+                    <input id="endDate" class="list-input" type="date" />
+                </div>
+            </div>
+            <div class="list-item">
+                <label for="csvFile" class="list-label">CSV Export</label>
+                <div class="list-input-container file-input-container">
+                    <input id="csvFile" type="file" accept=".csv" />
+                    <span id="fileNameDisplay" class="text-sm text-gray-400">No file selected</span>
+                    <label for="csvFile" class="file-input-label ml-auto">Choose File...</label>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-6">
+            <button id="run" class="btn btn-primary w-full">Run Dry Analysis</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Results & Action Card -->
+    <div class="card">
+      <h2>3. Analysis Summary & Action</h2>
+      <div class="card-content">
+        <!-- Metrics Panel -->
+        <div class="metrics-panel">
+            <div class="metric-box" data-status="info">
+              <strong id="statCsv">0</strong>
+              <small>CSV Rows</small>
+            </div>
+            <div class="metric-box" data-status="matched">
+              <strong id="statMatched">0</strong>
+              <small>Draft Payloads</small>
+            </div>
+            <div class="metric-box" data-status="skipped">
+              <strong id="statSkipped">0</strong>
+              <small>Skipped Shifts</small>
+            </div>
+            <div class="metric-box" data-status="info">
+              <strong id="statRoles">0</strong>
+              <small>Unmapped Roles</small>
+            </div>
+            <div class="metric-box" data-status="info">
+              <strong id="statDept">0</strong>
+              <small>Ambiguous Depts</small>
+            </div>
+        </div>
+
+        <!-- Progress and Final Action -->
+        <div id="progressWrap" class="progress-container">
+          <div class="progress-bar-wrap">
+            <div id="progressBar" class="progress-bar"></div>
+          </div>
+          <div class="progress-info">
+             <span id="progressText">0/0 • 0% • Elapsed 00:00 • ETA --:--</span>
+             <button id="cancelBtn" class="btn btn-stop">Stop</button>
+          </div>
+        </div>
+        
+        <div class="flex flex-col sm:flex-row justify-end items-center mt-6 gap-3">
+          <button id="downloadJson" disabled class="btn btn-secondary w-full sm:w-auto">Download Payloads (JSON)</button>
+          <button id="createShifts" disabled class="btn btn-primary w-full sm:w-auto">Create Shifts</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. Diagnostics & Live Log Card -->
+    <div class="card">
+        <h2>4. Live Activity Log</h2>
+        <div class="card-content">
+            <p class="text-xs text-gray-500 mb-3">Monitor API calls and processing warnings/errors in real-time.</p>
+            <pre id="log" class="log-box h-52"></pre>
+
+            <div class="diagnostic-panel mt-4">
+                <details class="mb-2">
+                  <summary class="font-semibold text-sm cursor-pointer list-none flex justify-between items-center text-gray-700">Payload Preview (First 3 Drafts) <span class="text-xs text-gray-400">Click to expand &raquo;</span></summary>
+                  <pre id="preview" class="log-box h-48 mt-2 !bg-gray-800 !text-white !font-mono">Run the analysis above to see data previews.</pre>
+                </details>
+                
+                <details>
+                  <summary class="font-semibold text-sm cursor-pointer list-none flex justify-between items-center text-gray-700">Error & Warning Report <span class="text-xs text-gray-400">Click to expand &raquo;</span></summary>
+                  <pre id="report" class="log-box h-48 mt-2 !bg-gray-800 !text-white !font-mono">Run the analysis above to see errors and warnings.</pre>
+                </details>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-xs text-slate-500 dark:text-slate-500 pt-2 pb-8">
+        <p>RotoFo Importer v0.5 • © 2025 elroydr</p>
+    </footer>
+
+  </div>
+
+<script>
+(function(){
+  // --- Core Utility Functions ---
+
+  function log(line,type){
+    var box=document.getElementById('log');
+    if (!box) { console.warn('Log element missing:', line); return; }
+    var ts=new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    var color = type === 'err' ? 'var(--accent-red)' : type === 'ok' ? 'var(--accent-green)' : '#999999';
+    var prefix = type === 'err' ? '[ERR]' : type === 'ok' ? '[OK ]' : '[.. ]';
+    
+    var span = document.createElement('span');
+    span.style.color = color;
+    span.textContent = prefix + ' ' + ts + '  ' + line + '\n';
+    
+    box.appendChild(span);
+    box.scrollTop=box.scrollHeight
+  }
+
+  // Parses DD/MM/YYYY and HH:MM into a Date object (local time)
+  function parseDateAndTime(dateStr, timeStr) {
+    var dateParts = String(dateStr).split('/');
+    var timeParts = String(timeStr).split(':');
+
+    if (dateParts.length !== 3 || timeParts.length !== 2) return null;
+
+    var D = parseInt(dateParts[0], 10);
+    var M = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+    var Y = parseInt(dateParts[2], 10);
+    var h = parseInt(timeParts[0], 10);
+    var m = parseInt(timeParts[1], 10);
+
+    if (isNaN(D) || isNaN(M) || isNaN(Y) || isNaN(h) || isNaN(m)) return null;
+
+    // Use a Date object, which creates it in the local timezone.
+    var d = new Date(Y, M, D, h, m, 0, 0);
+    
+    // Simple validation (e.g., prevents parsing Feb 30)
+    if (d.getFullYear() !== Y || d.getMonth() !== M || d.getDate() !== D) {
+        return null;
+    }
+    return d;
+  }
+  
+  // Manually constructs the YYYY-MM-DDTHH:MM:SS string using local time components.
+  function toLocalIsoString(d){
+    var Y = d.getFullYear();
+    var M = String(d.getMonth() + 1).padStart(2, '0');
+    var D = String(d.getDate()).padStart(2, '0');
+    var h = String(d.getHours()).padStart(2, '0');
+    var m = String(d.getMinutes()).padStart(2, '0');
+    var s = String(d.getSeconds()).padStart(2, '0');
+    
+    return `${Y}-${M}-${D}T${h}:${m}:${s}`;
+  }
+
+  function parseCSV(text){var rows=[];var i=0,field='',row=[],inQuotes=false;function f(){row.push(field);field=''}function r(){rows.push(row);row=[]}while(i<text.length){var c=text[i];if(c==='"'){if(inQuotes&&text[i+1]==='"'){field+='"';i++}else{inQuotes=!inQuotes}}else if(c===','&&!inQuotes){f()}else if((c==='\n'||c==='\r')&&!inQuotes){f();if(row.length>1||row[0]!=='')r();if(c==='\r'&&text[i+1]==='\n')i++}else{field+=c}i++}if(field.length||row.length){f();r()}if(!rows.length)return[];var headers=rows[0].map(function(h){return h.trim()});return rows.slice(1).map(function(rw){var obj={};headers.forEach(function(h,idx){obj[h]=rw[idx]!==undefined?rw[idx]:''});return obj})}
+  function normaliseRoleName(s){return String(s||'').trim().toLowerCase().replace(/\s+/g,' ')}
+  function extractPersonnelNumber(t){var m=String(t||'').match(/(\d+)(?!.*\d)/);return m?m[1]:null}
+
+  // --- API and Indexing Functions (with Backoff) ---
+  
+  async function fetchWeeklySchedule(o){
+    var p=new URLSearchParams({loadWeeklyData:'true',sortOrderType:'weekly',dateForWeeklyData:o.endDate});
+    var url='https://schedulingapi.teamhours.com/locations/'+encodeURIComponent(o.locationId)+'/departments/'+encodeURIComponent(o.departmentId)+'/from/'+o.startDate+'/to/'+o.endDate+'/schedule-period?'+p;
+    log('GET '+url);
+    
+    const MAX_RETRIES = 3;
+    let lastError = null;
+
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+            var res=await fetch(url,{
+                headers:{
+                    'Authorization':'Bearer '+o.token,
+                    'Accept':'application/json'
+                }
+            });
+            if(!res.ok) throw new Error('HTTP '+res.status + ' ' + res.statusText);
+            
+            var data=await res.json();
+            log('Received weekly schedule for dept '+o.departmentId,'ok');
+            return data;
+
+        } catch (e) {
+            lastError = e;
+            if (attempt < MAX_RETRIES - 1) {
+                log(`Attempt ${attempt + 1} failed for ${o.departmentId}. Retrying in ${Math.pow(2, attempt) * 1}s... (${e.message.split('\n')[0]})`, 'warn');
+                await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+            }
+        }
+    }
+    
+    throw lastError;
+  }
+  
+  async function fetchAndIndexMultipleDepartments({token,locationId,departmentIds,startDate,endDate}){
+    var merged={pnToEmp:new Map,roleNameToId:new Map,roleIdToName:new Map};
+    for(var i=0;i<departmentIds.length;i++){
+        var dep=departmentIds[i].trim();
+        if(!dep)continue;
+        try {
+            var data=await fetchWeeklySchedule({token:token,locationId:locationId,departmentId:dep,startDate:startDate,endDate:endDate});
+            var idx=indexSchedule(data);
+            
+            // Merge results
+            idx.pnToEmp.forEach(function(v,k){
+                var rec=merged.pnToEmp.get(k)||{employeeId:v.employeeId,mainRoleId:v.mainRoleId,deptIds:new Set};
+                v.deptIds.forEach(function(d){rec.deptIds.add(d)});
+                merged.pnToEmp.set(k,rec)
+            });
+            idx.roleNameToId.forEach(function(v,k){merged.roleNameToId.set(k,v)});
+            idx.roleIdToName.forEach(function(v,k){merged.roleIdToName.set(k,v)});
+
+        } catch (e) {
+            log('Skipping department '+dep+' due to fetch error: '+e.message,'err');
+        }
+    }
+    return merged
+  }
+
+  function indexSchedule(data){var pnToEmp=new Map;var roleNameToId=new Map;var roleIdToName=new Map;var days=Array.isArray(data.schedule)?data.schedule:[];for(var di=0;di<days.length;di++){var day=days[di];var employees=day.employees||{};Object.keys(employees).forEach(function(k){var emp=employees[k];var pn=String(emp.personnelNumber||'').trim();if(!pn)return;var rec=pnToEmp.get(pn)||{employeeId:emp.id,mainRoleId:emp.mainRoleId,deptIds:new Set};if(Array.isArray(emp.weeklyHoursByDepartment)){emp.weeklyHoursByDepartment.forEach(function(w){if(w&&w.departmentId!=null)rec.deptIds.add(String(w.departmentId))})}pnToEmp.set(pn,rec)});var roles=day.roles||{};Object.keys(roles).forEach(function(rid){var r=roles[rid];if(!r)return;var name=String(r.roleName||'').trim();if(name){var key=normaliseRoleName(name);roleNameToId.set(key,Number(rid));roleIdToName.set(Number(rid),name)}})}return{pnToEmp:pnToEmp,roleNameToId:roleNameToId,roleIdToName:roleIdToName}}
+  
+  // --- Dry Run Logic ---
+
+  function buildDryRun(rows,idx,defaults){
+    var report={skipped:[],unmappedRoles:new Set,ambiguousDepartments:[],matched:0};
+    var payloads=[];
+
+    for(var i=0;i<rows.length;i++){
+      var row=rows[i];
+      var pn=extractPersonnelNumber(row['Employee']);
+
+      if(!pn){report.skipped.push({reason:'no personnel number',row:row});continue}
+      var emp=idx.pnToEmp.get(pn);
+      if(!emp){report.skipped.push({reason:'person not in Fourth for week',personnelNumber:pn,row:row});continue}
+
+      var startDate = parseDateAndTime(row['Date'], row['Start Time']);
+      var endDate = parseDateAndTime(row['Date'], row['End Time']);
+
+      if (!startDate || !endDate) {
+          report.skipped.push({reason:'bad date or time (DD/MM/YYYY format expected)', row:row});
+          continue;
+      }
+      
+      var startLocalTime = toLocalIsoString(startDate).slice(11, 16);
+      var endLocalTime = toLocalIsoString(endDate).slice(11, 16);
+
+      // 1. Handle overnight shifts (if end time is before start time, increment end date)
+      if (endDate.getTime() <= startDate.getTime()) {
+          endDate.setDate(endDate.getDate() + 1);
+          log('Shift for PN '+pn+' crosses midnight ('+startLocalTime+' to '+endLocalTime+'). End date incremented to '+toLocalIsoString(endDate).slice(0,10), 'warn');
+      }
+
+      var startIso = toLocalIsoString(startDate);
+      var endIso = toLocalIsoString(endDate);
+
+      var chargedDate=startIso.slice(0,10)+'T00:00:00';
+      var roleNameCsv=normaliseRoleName(row['Role']);
+      var roleId=idx.roleNameToId.get(roleNameCsv);
+      if(!roleId){roleId=Number(emp.mainRoleId);report.unmappedRoles.add(row['Role']||'')}
+
+      var depts=Array.from(emp.deptIds);
+      var departmentId=null;
+      if(depts.length===1){departmentId=depts[0];}
+      else if(depts.length>1){report.ambiguousDepartments.push({personnelNumber:pn,departments:depts});}
+      else{report.skipped.push({reason:'no department for person in week',personnelNumber:pn,row:row});continue}
+      
+      if(!departmentId){continue}
+
+      // 2. Break Time Calculation (Set break at the shift's midpoint)
+      var break1Start = null;
+      var breakMin = 0;
+      var rawBreak = row['Minutes Break'];
+      if(rawBreak !== undefined && rawBreak !== null && String(rawBreak).trim() !== ''){
+        var n = Number(String(rawBreak).trim());
+        if(!isNaN(n) && n > 0) breakMin = Math.round(n);
+      }
+      
+      if (breakMin > 0) {
+        var shiftDurationMinutes = (endDate.getTime() - startDate.getTime()) / (1000 * 60);
+
+        if (breakMin >= shiftDurationMinutes) {
+             // Break is longer than or equal to the shift itself
+             log('Warning: Break of '+breakMin+' min is >= shift duration ('+shiftDurationMinutes+' min). Skipping break for PN '+pn, 'warn');
+             breakMin = 0;
+        } else {
+             // Calculate the start time of the break, centered on the shift's midpoint.
+             var breakStartOffsetMinutes = Math.floor(shiftDurationMinutes / 2) - Math.floor(breakMin / 2);
+
+             var breakDate = new Date(startDate.getTime());
+             breakDate.setMinutes(breakDate.getMinutes() + breakStartOffsetMinutes); 
+             
+             // Final safety check: ensure break ends before shift ends
+             var breakEndMs = breakDate.getTime() + (breakMin * 60 * 1000);
+             if (breakEndMs <= endDate.getTime()) {
+                 break1Start = toLocalIsoString(breakDate); // Use the fixed local time converter
+             } else {
+                 // Fallback: This condition should ideally not be met with the midpoint calculation, 
+                 // but as a final safety measure, we log and skip the break.
+                 log('Warning: Midpoint placement failed or logic error. Skipping '+breakMin+' min break for PN '+pn, 'warn');
+                 breakMin = 0; 
+             }
+        }
+      }
+
+      var payload={
+        employeeId:Number(emp.employeeId||emp.id||0),
+        departmentId:String(departmentId||defaults.departmentId||''),
+        roleId:Number(roleId||defaults.roleId||0),
+        break1StartTime:break1Start, 
+        break1Minutes:breakMin,
+        break2StartTime:null,
+        break2Minutes:0,
+        chargedDate:chargedDate,
+        contractId:'',
+        endDateTime:endIso, // Now uses local time
+        isAvailableForCurrentRoleOnly:true,
+        isPaidBreak1:false,
+        isPaidBreak2:false,
+        isPassive:false,
+        isShiftShort:false,
+        notes:String(row['Notes']||''),
+        numberOfEmployees:1,
+        passiveShiftReasonId:null,
+        publishAlertId:1,
+        publishMessage:'',
+        publishType:0,
+        shiftPayFactor:1,
+        shiftTypeId:0,
+        shouldBePublished:false,
+        startDateTime:startIso // Now uses local time
+      };
+      payloads.push(payload)
+    }
+    report.matched=payloads.length;
+    report.unmappedRoles=Array.from(report.unmappedRoles).filter(Boolean);
+    return{payloads:payloads,report:report}
+  }
+
+  function download(name,text){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();URL.revokeObjectURL(a.href)}
+  
+  // --- Main Execution and Handlers ---
+
+  async function main(){
+    var token=document.getElementById('token').value.trim();
+    var locationId=document.getElementById('locationId').value.trim();
+    var departmentIdRaw=document.getElementById('departmentId').value.trim();
+    var startDate=document.getElementById('startDate').value;
+    var endDate=document.getElementById('endDate').value;
+    var fileInput=document.getElementById('csvFile');
+    var file=fileInput&&fileInput.files?fileInput.files[0]:null;
+    
+    // Clear previous results
+    document.getElementById('log').textContent = ''; 
+    document.getElementById('statCsv').textContent = '0';
+    document.getElementById('statMatched').textContent = '0';
+    document.getElementById('statSkipped').textContent = '0';
+    document.getElementById('statRoles').textContent = '0';
+    document.getElementById('statDept').textContent = '0';
+    document.getElementById('preview').textContent = 'No data analyzed yet.';
+    document.getElementById('report').textContent = 'No data analyzed yet.';
+    window.__payloads = [];
+
+    if(!token){log('Token is required','err');return}
+    if(!locationId||!departmentIdRaw){log('Location and department are required','err');return}
+    if(!startDate||!endDate){log('Pick a start and end date','err');return}
+    if(!file){log('Choose a CSV export','err');return}
+    
+    var runBtn=document.getElementById('run');
+    runBtn.disabled=true;
+    var dlBtn=document.getElementById('downloadJson');
+    if(dlBtn) dlBtn.disabled=true;
+    var createBtn=document.getElementById('createShifts');
+    if(createBtn) createBtn.disabled=true;
+
+    try{
+      var depList=departmentIdRaw.split(',').map(function(s){return s.trim()}).filter(Boolean);
+      log('Fetching schedule data for '+depList.length+' department(s)...');
+
+      var idx=await fetchAndIndexMultipleDepartments({token:token,locationId:locationId,departmentIds:depList,startDate:startDate,endDate:endDate});
+      
+      var rows=[];
+      try{
+        var text=await file.text();
+        rows=parseCSV(text)
+        log('Parsed CSV with '+rows.length+' rows.','ok');
+      }catch(e){
+        log('CSV parse error: '+e.message,'err');
+        return
+      }
+      
+      var defaults={departmentId:'',roleId:0};
+      var out=buildDryRun(rows,idx,defaults);
+
+      // Update the stat elements
+      document.getElementById('statCsv').textContent=rows.length;
+      document.getElementById('statMatched').textContent=out.payloads.length;
+      document.getElementById('statSkipped').textContent=out.report.skipped.length; 
+      document.getElementById('statRoles').textContent=out.report.unmappedRoles.length;
+      document.getElementById('statDept').textContent=out.report.ambiguousDepartments.length;
+      
+      // Update details panels
+      document.getElementById('preview').textContent=out.payloads.length > 0 ? JSON.stringify(out.payloads.slice(0,3),null,2) : 'No payloads were generated.';
+      document.getElementById('report').textContent=JSON.stringify({
+          skippedRows:out.report.skipped.slice(0,10).map(r => ({ reason: r.reason, employee: r.row.Employee, date: r.row.Date, role: r.row.Role })),
+          unmappedRoles:out.report.unmappedRoles,
+          ambiguousDepartments:out.report.ambiguousDepartments.slice(0,10)
+      },null,2);
+      
+      window.__payloads=out.payloads;
+      log('Dry run ready with '+out.payloads.length+' payloads. Review results below.','ok');
+      
+      if(dlBtn) dlBtn.disabled=out.payloads.length===0;
+      if(createBtn) createBtn.disabled=out.payloads.length===0;
+
+    }catch(e){
+      log('Fatal error during dry run: '+e.message,'err');
+    }finally{
+      runBtn.disabled=false;
+    }
+  }
+
+  async function createShiftsNow(){
+    var payloads=window.__payloads||[];
+    if(!payloads.length){
+      log('No payloads to create','err');
+      return
+    }
+
+    var token=document.getElementById('token').value.trim();
+    var locationId=document.getElementById('locationId').value.trim();
+    
+    if(!token||!locationId){
+      log('Token and location are required','err');
+      return
+    }
+
+    log('Starting shift creation for '+payloads.length+' drafts...', 'warn');
+
+    var createBtn=document.getElementById('createShifts');
+    createBtn.disabled=true;
+    var ok=0,fail=0;
+    var sig=new Set;
+    var sleep=function(ms){return new Promise(function(r){return setTimeout(r,ms)})};
+    var start=Date.now();
+    var cancel=false;
+    var progressWrap=document.getElementById('progressWrap');
+    var progressBar=document.getElementById('progressBar');
+    var progressText=document.getElementById('progressText');
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = 'Stop';
+
+    progressWrap.style.display='block';
+    
+    // Wire click handler once
+    document.getElementById('cancelBtn').onclick=function(){
+      cancel=true;
+      document.getElementById('cancelBtn').disabled = true;
+      document.getElementById('cancelBtn').textContent = 'Cancelling...';
+    };
+    
+    function fmt(t){var m=Math.floor(t/60);var s=Math.floor(t%60);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')}
+    
+    // Use textContent instead of innerHTML to prevent button recreation
+    function upd(done,total){
+      var elapsed=(Date.now()-start)/1000;
+      var rate=done?elapsed/done:0;
+      var remain=Math.max(0,(total-done)*rate);
+      var pct=total?Math.floor(done*100/total):0;
+      progressBar.style.width=pct+'%';
+      progressText.textContent = done+'/'+total+' • '+pct+'% • Elapsed '+fmt(elapsed)+' • ETA '+(rate?fmt(remain):'--:--');
+    }
+    
+    var total=payloads.length;
+    upd(0,total);
+
+    for(var i=0;i<payloads.length;i++){
+      if(cancel){
+        log('Process cancelled by user.','warn');
+        break;
+      }
+      
+      var p=payloads[i];
+      var s=p.employeeId+'|'+p.startDateTime+'|'+p.endDateTime+'|'+p.roleId+'|'+p.departmentId;
+      
+      // Advance progress even on skips
+      if(sig.has(s)){
+        log('Skip duplicate '+s,'warn');
+        upd(i+1,total);
+        continue
+      }
+      sig.add(s);
+      
+      if(p.shouldBePublished||p.publishType===1){
+        log('Incoming payload requested publish. Overriding to draft.','warn')
+      }
+      
+      var body=Object.assign({},p,{shouldBePublished:false,publishType:0});
+      var departmentId=String(p.departmentId||'');
+      var endpoint='https://schedulingapi.teamhours.com/locations/'+encodeURIComponent(locationId)+'/departments/'+encodeURIComponent(departmentId)+'/shifts';
+      
+      // Advance progress even on skips
+      if(!departmentId){
+        log('Skip: missing departmentId for emp '+p.employeeId+' '+p.startDateTime,'err');
+        fail++;
+        upd(i+1,total);
+        continue
+      }
+      
+      // Retry logic for POST requests
+      const POST_MAX_RETRIES = 3;
+      let postSuccess = false;
+
+      for (let attempt = 0; attempt < POST_MAX_RETRIES; attempt++) {
+        try{
+          var res=await fetch(endpoint,{
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer '+token,'Accept':'application/json'},
+            body:JSON.stringify(body)
+          });
+
+          if(!res.ok){
+            var txt=await res.text();
+            throw new Error('POST '+res.status+' for emp '+p.employeeId+' '+p.startDateTime+' -> '+txt.slice(0,200));
+          } else {
+            // Success
+            await res.text();
+            log('Created shift for emp '+p.employeeId+' ('+p.startDateTime.slice(0, 16)+')','ok');
+            ok++;
+            postSuccess = true;
+            break; // Exit retry loop on success
+          }
+        }catch(e){
+          log(`Attempt ${attempt + 1} failed: ${e.message.split('\n')[0]}`, 'err');
+          if (attempt < POST_MAX_RETRIES - 1) {
+              await sleep(Math.pow(2, attempt) * 1000);
+          } else {
+              // Last attempt failed
+              fail++;
+          }
+        }
+      }
+
+      // Advance progress regardless of success/failure after the API attempts
+      upd(i+1,total);
+      
+      // Rate limit only on success
+      if (postSuccess) {
+          await sleep(200); 
+      }
+    }
+    
+    log('Done. Success: '+ok+', Failed: '+fail,fail?'warn':'ok');
+    progressWrap.style.display='none';
+    document.getElementById('createShifts').disabled=false;
+    // Reset cancel button state
+    document.getElementById('cancelBtn').disabled = false;
+    document.getElementById('cancelBtn').textContent = 'Stop';
+  }
+  
+  function bindHandlers(){
+    var runBtn=document.getElementById('run');
+    if(!runBtn)return;
+    runBtn.addEventListener('click',main);
+    
+    var dlBtn=document.getElementById('downloadJson');
+    if(dlBtn)dlBtn.addEventListener('click',function(){
+      var payloads=window.__payloads||[];
+      if(!payloads.length){
+        log('No payloads to download','err');
+        return
+      }
+      download('fourth_shift_payloads_dry_run.json',JSON.stringify(payloads,null,2))
+    });
+    
+    var createBtn=document.getElementById('createShifts');
+    if(createBtn)createBtn.addEventListener('click',createShiftsNow);
+    
+    var fileInput = document.getElementById('csvFile');
+    var fileNameDisplay = document.getElementById('fileNameDisplay');
+    fileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            fileNameDisplay.textContent = this.files[0].name;
+            fileNameDisplay.classList.remove('text-gray-400');
+            fileNameDisplay.classList.add('text-gray-800');
+        } else {
+            fileNameDisplay.textContent = 'No file selected';
+            fileNameDisplay.classList.add('text-gray-400');
+            fileNameDisplay.classList.remove('text-gray-800');
+        }
+    });
+  }
+  
+  window.addEventListener('error',function(e){try{log('JS error: '+e.message,'err')}catch(_){}console.error(e)});
+  window.addEventListener('unhandledrejection',function(e){try{var msg=e.reason&&e.reason.message||e.reason;log('Promise rejection: '+msg,'err')}catch(_){}console.error(e)});
+  
+  document.addEventListener('DOMContentLoaded',function(){
+    try{
+      var today=new Date();
+      // Calculate next Monday
+      var day=today.getDay();
+      var diffToMon=day===0?1:8-day; // If today is Sunday (0), next Mon is 1 day away. Otherwise, 8 - current day of week.
+      
+      var nextMonday=new Date(today);
+      nextMonday.setDate(today.getDate()+diffToMon);
+      nextMonday.setHours(0,0,0,0); // Reset time to midnight for clean date input
+
+      var nextSunday=new Date(nextMonday);
+      nextSunday.setDate(nextMonday.getDate()+6);
+
+      var fmt=function(d){return d.toISOString().slice(0,10)};
+      var start=document.getElementById('startDate');
+      var end=document.getElementById('endDate');
+      
+      // Set to next Monday/Sunday only if inputs are empty
+      if(start&&!start.value)start.value=fmt(nextMonday);
+      if(end&&!end.value)end.value=fmt(nextSunday)
+    }catch(e){}
+    
+    document.getElementById('preview').textContent = 'No data analyzed yet.';
+    document.getElementById('report').textContent = 'No data analyzed yet.';
+    bindHandlers()
+  });
+})();
+</script>
+</body>
+</html>
